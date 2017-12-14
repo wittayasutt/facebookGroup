@@ -20,12 +20,13 @@ class Index extends React.Component {
 	}
 
 	state = {
-		APPID: '891066087729524',
 		login: false,
 		accessToken: null,
 		name: '',
 		keyword: '',
-		groupResult: ''
+		selectedGroup: -1,
+		groupResult: [],
+		feed: []
 	}
 
 	fbStatus = () => {
@@ -70,22 +71,102 @@ class Index extends React.Component {
 	findFbGroup = e => {
 		e.preventDefault()
 		let _this = this
-		console.log(_this.state.keyword)
-
 		FB.api('/search', { type: 'group', q: _this.state.keyword }, response => {
 			_this.setState({ groupResult: response.data })
-
-			console.log(_this.state.groupResult)
 		})
+	}
+
+	selectGroup = id => {
+		let _this = this
+		FB.api(`/${id}/feed`, { accessToken: this.state.accessToken }, response => {
+			_this.setState(
+				{
+					feed: response.data,
+					selectedGroup: id
+				},
+				() => {
+					this.state.feed.forEach((post, index) => {
+						FB.api(`/${post.id}`, { fields: 'picture' }, response => {
+							if (response.picture) {
+								let feed = this.state.feed
+								feed[index].picture = response.picture
+								_this.setState({ feed })
+							}
+						})
+					})
+				}
+			)
+		})
+	}
+
+	setGroup = () => {
+		let { groupResult } = this.state
+		let items = []
+
+		if (groupResult) {
+			let key = 0
+			groupResult.forEach(item => {
+				items.push(
+					<li onClick={this.selectGroup(item.id)} key={key}>
+						<a>
+							[{item.privacy}] {item.name}
+						</a>
+
+						<style jsx>{`
+							a {
+								cursor: pointer;
+							}
+							a:hover {
+								text-decoration: underline;
+							}
+						`}</style>
+					</li>
+				)
+				key++
+			})
+		}
+
+		return items
+	}
+
+	setFeed = () => {
+		let { feed } = this.state
+		let items = []
+
+		if (feed) {
+			let key = 0
+			feed.forEach(item => {
+				items.push(
+					<li key={key}>
+						{items.message}
+
+						<style jsx>{`
+							a {
+								cursor: pointer;
+							}
+							a:hover {
+								text-decoration: underline;
+							}
+						`}</style>
+					</li>
+				)
+				key++
+			})
+		}
+
+		return items
 	}
 
 	render() {
 		const { stars } = this.props
-		let { login, name, keyword } = this.state
+		let { login, name, keyword, selectedGroup } = this.state
+
+		let groups = this.setGroup()
+		// let feed = this.setFeed()
 
 		if (!login) {
 			return (
-				<div className="container">
+				<div className="mdl-card">
 					<button
 						className="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent"
 						onClick={this.fbLogin}>
@@ -93,12 +174,18 @@ class Index extends React.Component {
 					</button>
 
 					<style jsx>{`
-						.container {
-							width: 20vw;
+						.mdl-card {
+							width: 30vw;
 							display: flex;
 							flex-direction: column;
 							justify-content: center;
 							margin: 1rem auto 0;
+							padding: 1rem;
+						}
+
+						.mdl-card > button {
+							width: 300px;
+							margin: auto;
 						}
 					`}</style>
 				</div>
@@ -112,7 +199,6 @@ class Index extends React.Component {
 						onClick={this.fbLogout}>
 						logout
 					</button>
-
 					<form onSubmit={this.findFbGroup}>
 						<div className="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
 							<input
@@ -129,19 +215,40 @@ class Index extends React.Component {
 						</div>
 					</form>
 
+					{selectedGroup !== -1 ? (
+						<div>
+							x
+							<ul>{}</ul>
+						</div>
+					) : (
+						<ul>{groups}</ul>
+					)}
+
 					<style jsx>{`
 						.mdl-card {
-							width: 25vw;
+							width: 30vw;
 							display: flex;
 							flex-direction: column;
 							justify-content: center;
 							margin: 1rem auto 0;
 							padding: 1rem;
 						}
-
 						.mdl-card > h5 {
 							display: flex;
 							justify-content: center;
+						}
+						.mdl-card > button {
+							width: 300px;
+							margin: auto;
+						}
+						.mdl-card > form {
+							margin: auto;
+						}
+						.mdl-card li {
+							cursor: pointer;
+						}
+						.mdl-card li:hover {
+							text-decoration: underline;
 						}
 					`}</style>
 				</div>
