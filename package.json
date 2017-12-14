@@ -15,7 +15,9 @@
   "scripts": {
     "dev": "node server",
     "build": "next build",
-    "start": "NODE_ENV=production node server"
+    // "start": "NODE_ENV=production node server",
+    "start": "next start -p $PORT",
+    "heroku-postbuild": "next build"
   },
   "devDependencies": {
     "sw-precache-webpack-plugin": "^0.11.4"
