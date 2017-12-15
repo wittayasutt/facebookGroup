@@ -69,43 +69,43 @@ class Index extends React.Component {
 	}
 
 	findFbGroup = e => {
-		e.preventDefault()
-		let { keyword, groupResult } = this.state
-		let _this = this
+		if (e.key === 'Enter') {
+			let { keyword, groupResult } = this.state
+			let _this = this
 
-		console.log('a', groupResult)
-		console.log('a', groupResult.length)
-
-		if (groupResult.length === 0) {
-			FB.api('/search', { type: 'group', q: keyword }, response => {
-				// console.log('response.data',response.data)
-				_this.setState({ groupResult: response.data })
-			})
+			if (groupResult.length === 0) {
+				FB.api('/search', { type: 'group', q: keyword }, response => {
+					console.log('response', response.error === true)
+					if (response) _this.setState({ groupResult: response.data })
+				})
+			}
 		}
 	}
 
 	selectGroup = id => {
 		let _this = this
 		FB.api(`/${id}/feed`, { accessToken: this.state.accessToken }, response => {
-			_this.setState(
-				{
-					feed: response.data,
-					selectedGroup: id
-				},
-				() => {
-					console.log('this.state.feed', this.state.feed)
+			if (response) {
+				_this.setState(
+					{
+						feed: response.data,
+						selectedGroup: id
+					},
+					() => {
+						console.log('this.state.feed', this.state.feed)
 
-					this.state.feed.forEach((post, index) => {
-						FB.api(`/${post.id}`, { fields: 'picture' }, response => {
-							if (response.picture) {
-								let feed = this.state.feed
-								feed[index].picture = response.picture
-								_this.setState({ feed })
-							}
+						this.state.feed.forEach((post, index) => {
+							FB.api(`/${post.id}`, { fields: 'picture' }, response => {
+								if (response.picture) {
+									let feed = this.state.feed
+									feed[index].picture = response.picture
+									_this.setState({ feed })
+								}
+							})
 						})
-					})
-				}
-			)
+					}
+				)
+			}
 		})
 	}
 
@@ -211,7 +211,7 @@ class Index extends React.Component {
 						onClick={this.fbLogout}>
 						logout
 					</button>
-					<form onSubmit={this.findFbGroup}>
+					<form onKeyPress={this.findFbGroup}>
 						<div className="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
 							<input
 								type="text"
