@@ -73,6 +73,9 @@ class Index extends React.Component {
 		let { keyword, groupResult } = this.state
 		let _this = this
 
+		console.log('a', groupResult)
+		console.log('a', groupResult.length)
+
 		if (groupResult.length === 0) {
 			FB.api('/search', { type: 'group', q: keyword }, response => {
 				// console.log('response.data',response.data)
