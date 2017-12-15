@@ -71,9 +71,9 @@ class Index extends React.Component {
 	findFbGroup = e => {
 		e.preventDefault()
 		let _this = this
-		console.log('_this.state.keyword',_this.state.keyword)
+		// console.log('_this.state.keyword',_this.state.keyword)
 		FB.api('/search', { type: 'group', q: _this.state.keyword }, response => {
-			console.log('response.data',response.data)
+			// console.log('response.data',response.data)
 			_this.setState({ groupResult: response.data })
 		})
 	}
@@ -167,7 +167,7 @@ class Index extends React.Component {
 		const { stars } = this.props
 		let { login, name, keyword, selectedGroup } = this.state
 
-		let groups = ''//this.setGroup()
+		let groups = this.setGroup()
 		// let feed = this.setFeed()
 
 		if (!login) {
