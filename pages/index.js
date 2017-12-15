@@ -71,7 +71,9 @@ class Index extends React.Component {
 	findFbGroup = e => {
 		e.preventDefault()
 		let _this = this
+		console.log('_this.state.keyword',_this.state.keyword)
 		FB.api('/search', { type: 'group', q: _this.state.keyword }, response => {
+			console.log('response.data',response.data)
 			_this.setState({ groupResult: response.data })
 		})
 	}
@@ -85,6 +87,8 @@ class Index extends React.Component {
 					selectedGroup: id
 				},
 				() => {
+					console.log('this.state.feed', this.state.feed)
+
 					this.state.feed.forEach((post, index) => {
 						FB.api(`/${post.id}`, { fields: 'picture' }, response => {
 							if (response.picture) {
@@ -103,7 +107,9 @@ class Index extends React.Component {
 		let { groupResult } = this.state
 		let items = []
 
-		if (groupResult) {
+		console.log('groupResult', groupResult)
+
+		if (groupResult.length > 0) {
 			let key = 0
 			groupResult.forEach(item => {
 				items.push(
@@ -133,7 +139,7 @@ class Index extends React.Component {
 		let { feed } = this.state
 		let items = []
 
-		if (feed) {
+		if (feed.length > 0) {
 			let key = 0
 			feed.forEach(item => {
 				items.push(
@@ -161,7 +167,7 @@ class Index extends React.Component {
 		const { stars } = this.props
 		let { login, name, keyword, selectedGroup } = this.state
 
-		let groups = this.setGroup()
+		let groups = ''//this.setGroup()
 		// let feed = this.setFeed()
 
 		if (!login) {
