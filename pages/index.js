@@ -71,11 +71,13 @@ class Index extends React.Component {
 	findFbGroup = e => {
 		e.preventDefault()
 		let _this = this
-		// console.log('_this.state.keyword',_this.state.keyword)
-		FB.api('/search', { type: 'group', q: _this.state.keyword }, response => {
-			// console.log('response.data',response.data)
-			_this.setState({ groupResult: response.data })
-		})
+
+		if (groupResult.length === 0) {
+			FB.api('/search', { type: 'group', q: _this.state.keyword }, response => {
+				// console.log('response.data',response.data)
+				_this.setState({ groupResult: response.data })
+			})
+		}
 	}
 
 	selectGroup = id => {
