@@ -7,6 +7,7 @@ import Todo from '../components/Todo'
 
 import initStore from '../utils/store'
 import moment from 'moment'
+import _ from 'lodash'
 
 class Index extends React.Component {
 	static async getInitialProps({ store }) {
@@ -24,15 +25,31 @@ class Index extends React.Component {
 		login: false,
 		accessToken: null,
 		name: '',
+		since: moment()
+			.subtract({ days: 7 })
+			.format(),
 		time: moment()
-			.subtract({ minutes: 10 })
+			.subtract({ minutes: 30 })
 			.format(),
 		keyword: '',
 		selectedGroup: -1,
 		selectedPost: -1,
 		groupResult: [],
 		feed: [],
-		comment: []
+		comment: [],
+		loading: false,
+		interval: null
+	}
+
+	componentDidMount() {
+		const _this = this
+
+		setInterval(() => {
+			let { selectedGroup } = _this.state
+			if (selectedGroup !== -1) {
+				_this.selectGroup(selectedGroup)
+			}
+		}, 10000)
 	}
 
 	fbStatus = () => {
@@ -90,11 +107,11 @@ class Index extends React.Component {
 
 	selectGroup = id => {
 		let _this = this
+		this.setState({ loading: true })
+
 		FB.api(
-			`/${id}/feed?since=${moment()
-				.subtract({ minutes: 30 })
-				.format()}`,
-			{ accessToken: this.state.accessToken },
+			`/${id}/feed`,
+			{ accessToken: this.state.accessToken, since: this.state.since },
 			response => {
 				if (response) {
 					_this.setState(
@@ -104,13 +121,17 @@ class Index extends React.Component {
 						},
 						() => {
 							this.state.feed.forEach((post, index) => {
-								FB.api(`/${post.id}`, { fields: 'picture' }, response => {
-									if (response.picture) {
+								FB.api(
+									`/${post.id}`,
+									{ fields: 'picture, created_time' },
+									response => {
 										let feed = this.state.feed
-										feed[index].picture = response.picture
-										_this.setState({ feed })
+										feed[index].created_time = response.created_time
+										if (response.picture) feed[index].picture = response.picture
+
+										_this.setState({ feed, loading: false })
 									}
-								})
+								)
 							})
 						}
 					)
@@ -178,21 +199,26 @@ class Index extends React.Component {
 	}
 
 	setFeed = () => {
-		let { selectedPost, feed } = this.state
+		let { time, selectedPost, feed } = this.state
 		let items = []
 
 		if (feed.length > 0) {
-			let key = 0
-			feed.forEach(item => {
+			_.sortBy(feed, [post => post.updated_time])
+			feed.forEach((item, index) => {
 				items.push(
-					<div className="demo-card-wide mdl-card mdl-shadow--2dp" key={key}>
-						<div className="new-post">NEW</div>
+					<div className="demo-card-wide mdl-card mdl-shadow--2dp" key={index}>
 						{item.picture ? (
 							<div className="mdl-card__title">
 								<img className="image" src={item.picture} alt={item.message} />
 							</div>
 						) : null}
-						<div className="mdl-card__supporting-text">{item.message}</div>
+						<div className="mdl-card__supporting-text">
+							{item.message} - updated time{' '}
+							{moment(item.updated_time).format('HH:mm:ss D MMM YYYY')}&nbsp;
+							{moment(item.created_time).diff(time, 'seconds') > 0 ? (
+								<span className="new-post">NEW</span>
+							) : null}
+						</div>
 						<div className="mdl-card__actions mdl-card--border">
 							{selectedPost === item.id ? (
 								this.setComment()
@@ -214,7 +240,7 @@ class Index extends React.Component {
 							.new-post {
 								background: #448aff;
 								color: #ffffff;
-								padding: 10px;
+								padding: 2px 8px;
 							}
 							.image {
 								width: 100%;
@@ -222,7 +248,10 @@ class Index extends React.Component {
 						`}</style>
 					</div>
 				)
-				key++
+
+				if (selectedPost === -1 && index === 0) {
+					this.seeComment(item.id)
+				}
 			})
 		}
 
@@ -234,15 +263,14 @@ class Index extends React.Component {
 		let items = []
 
 		if (comment.length > 0) {
-			let key = 0
-			comment.forEach(item => {
+			comment.forEach((item, index) => {
 				const newRep =
 					moment(item.created_time).diff(time, 'seconds') > 0
 						? 'mdl-chip mdl-chip--contact mdl-badge mdl-badge--overlap'
 						: 'mdl-chip mdl-chip--contact'
 
 				items.push(
-					<span className={newRep} data-badge="N" key={key}>
+					<span className={newRep} data-badge="N" key={index}>
 						<span className="mdl-chip__contact mdl-color--teal mdl-color-text--white">
 							C
 						</span>
@@ -257,15 +285,14 @@ class Index extends React.Component {
 				)
 
 				if (item.reply) {
-					item.reply.forEach(rep => {
+					item.reply.forEach((rep, rIndex) => {
 						const newRep =
 							moment(rep.created_time).diff(time, 'seconds') > 0
 								? 'mdl-chip mdl-chip--contact mdl-badge mdl-badge--overlap'
 								: 'mdl-chip mdl-chip--contact'
 
-						key++
 						items.push(
-							<span className={newRep} data-badge="N" key={key}>
+							<span className={newRep} data-badge="N" key={rIndex}>
 								<span className="mdl-chip__contact mdl-color--red mdl-color-text--white">
 									R
 								</span>
@@ -281,7 +308,6 @@ class Index extends React.Component {
 						)
 					})
 				}
-				key++
 			})
 		}
 
@@ -290,7 +316,7 @@ class Index extends React.Component {
 
 	render() {
 		const { stars } = this.props
-		let { login, name, keyword, selectedGroup } = this.state
+		let { login, name, keyword, selectedGroup, loading } = this.state
 
 		let groups = this.setGroup()
 		let feed = this.setFeed()
@@ -346,7 +372,9 @@ class Index extends React.Component {
 						</div>
 					</form>
 
-					{selectedGroup !== -1 ? (
+					{loading ? (
+						<div>loading...</div>
+					) : selectedGroup !== -1 ? (
 						<div>
 							<span className="close" onClick={e => this.closeGroup()}>
 								x
