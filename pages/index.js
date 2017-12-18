@@ -6,7 +6,7 @@ import Fork from '../components/Fork'
 import Todo from '../components/Todo'
 
 import initStore from '../utils/store'
-import moment from 'moment'
+import moment, { locale } from 'moment'
 import _ from 'lodash'
 
 class Index extends React.Component {
@@ -32,6 +32,7 @@ class Index extends React.Component {
 			.subtract({ minutes: 30 })
 			.format(),
 		keyword: '',
+		filter: null,
 		selectedGroup: -1,
 		selectedPost: -1,
 		groupResult: [],
@@ -49,7 +50,7 @@ class Index extends React.Component {
 			if (selectedGroup !== -1) {
 				_this.selectGroup(selectedGroup)
 			}
-		}, 10000)
+		}, 30000)
 	}
 
 	fbStatus = () => {
@@ -93,16 +94,21 @@ class Index extends React.Component {
 
 	findFbGroup = e => {
 		e.preventDefault()
-		let { keyword, groupResult } = this.state
+		let { keyword, filter, selectedGroup, groupResult } = this.state
 		let _this = this
 
-		FB.api('/search', { type: 'group', q: keyword }, response => {
-			if (response)
-				_this.setState({
-					selectedGroup: -1,
-					groupResult: response.data
-				})
-		})
+		if (keyword !== '' && selectedGroup === -1) {
+			FB.api('/search', { type: 'group', q: keyword }, response => {
+				if (response)
+					_this.setState({
+						keyword: '',
+						selectedGroup: -1,
+						groupResult: response.data
+					})
+			})
+		} else if (keyword !== '') {
+			_this.setState({ filter: keyword }, () => {})
+		}
 	}
 
 	selectGroup = id => {
@@ -142,6 +148,7 @@ class Index extends React.Component {
 
 	closeGroup = () => {
 		this.setState({
+			keyword: '',
 			selectedGroup: -1,
 			feed: []
 		})
@@ -199,55 +206,21 @@ class Index extends React.Component {
 	}
 
 	setFeed = () => {
-		let { time, selectedPost, feed } = this.state
+		let { time, selectedPost, feed, filter } = this.state
 		let items = []
 
 		if (feed.length > 0) {
 			_.sortBy(feed, [post => post.updated_time])
 			feed.forEach((item, index) => {
-				items.push(
-					<div className="demo-card-wide mdl-card mdl-shadow--2dp" key={index}>
-						{item.picture ? (
-							<div className="mdl-card__title">
-								<img className="image" src={item.picture} alt={item.message} />
-							</div>
-						) : null}
-						<div className="mdl-card__supporting-text">
-							{item.message} - updated time{' '}
-							{moment(item.updated_time).format('HH:mm:ss D MMM YYYY')}&nbsp;
-							{moment(item.created_time).diff(time, 'seconds') > 0 ? (
-								<span className="new-post">NEW</span>
-							) : null}
-						</div>
-						<div className="mdl-card__actions mdl-card--border">
-							{selectedPost === item.id ? (
-								this.setComment()
-							) : (
-								<a
-									className="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect"
-									onClick={e => this.seeComment(item.id)}>
-									Comment
-								</a>
-							)}
-						</div>
-
-						<style jsx>{`
-							.demo-card-wide {
-								min-height: auto;
-								width: 100%;
-								margin-top: 2rem;
-							}
-							.new-post {
-								background: #448aff;
-								color: #ffffff;
-								padding: 2px 8px;
-							}
-							.image {
-								width: 100%;
-							}
-						`}</style>
-					</div>
-				)
+				if (!filter) {
+					items = this.addPost(items, item, index, time, selectedPost)
+				} else if (
+					filter &&
+					item.message &&
+					item.message.indexOf(filter) !== -1
+				) {
+					items = this.addPost(items, item, index, time, selectedPost)
+				}
 
 				if (selectedPost === -1 && index === 0) {
 					this.seeComment(item.id)
@@ -258,8 +231,56 @@ class Index extends React.Component {
 		return items
 	}
 
+	addPost = (items, item, index, time, selectedPost) => {
+		items.push(
+			<div className="demo-card-wide mdl-card mdl-shadow--2dp" key={index}>
+				{item.picture ? (
+					<div className="mdl-card__title">
+						<img className="image" src={item.picture} alt={item.message} />
+					</div>
+				) : null}
+				<div className="mdl-card__supporting-text">
+					{item.message} - updated time{' '}
+					{moment(item.updated_time).format('HH:mm:ss D MMM YYYY')}&nbsp;
+					{moment(item.created_time).diff(time, 'seconds') > 0 ? (
+						<span className="new-post">NEW</span>
+					) : null}
+				</div>
+				<div className="mdl-card__actions mdl-card--border">
+					{selectedPost === item.id ? (
+						this.setComment()
+					) : (
+						<a
+							className="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect"
+							onClick={e => this.seeComment(item.id)}>
+							Comment
+						</a>
+					)}
+				</div>
+
+				<style jsx>{`
+					.demo-card-wide {
+						min-height: auto;
+						width: 100%;
+						margin-top: 2rem;
+					}
+					.new-post {
+						background: #448aff;
+						color: #ffffff;
+						padding: 2px 8px;
+					}
+					.image {
+						width: 100%;
+					}
+				`}</style>
+			</div>
+		)
+
+		return items
+	}
+
 	setComment = () => {
-		let { time, comment } = this.state
+		let { time, comment, filter } = this.state
 		let items = []
 
 		if (comment.length > 0) {
@@ -367,7 +388,7 @@ class Index extends React.Component {
 							/>
 
 							<label className="mdl-textfield__label" htmlFor="input">
-								Find group ...
+								{selectedGroup === -1 ? 'Find group ...' : 'Filter keyword ...'}
 							</label>
 						</div>
 					</form>
