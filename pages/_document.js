@@ -27,7 +27,7 @@ export default class MyDocument extends Document {
 							__html: `
 							window.fbAsyncInit = function() {
 								FB.init({
-									appId            : '891066087729524',
+									appId            : '380171252441711',
 									autoLogAppEvents : true,
 									xfbml            : true,
 									version          : 'v2.11'
