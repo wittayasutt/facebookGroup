@@ -8,6 +8,7 @@ import Todo from '../components/Todo'
 import initStore from '../utils/store'
 import moment, { locale } from 'moment'
 import _ from 'lodash'
+import Chart from 'chart.js'
 
 class Index extends React.Component {
 	static async getInitialProps({ store }) {
@@ -24,13 +25,13 @@ class Index extends React.Component {
 	state = {
 		login: false,
 		accessToken: null,
-		name: '',
 		since: moment()
 			.subtract({ days: 7 })
 			.format(),
 		time: moment()
 			.subtract({ minutes: 30 })
 			.format(),
+		name: '',
 		keyword: '',
 		filter: null,
 		selectedGroup: -1,
@@ -39,7 +40,9 @@ class Index extends React.Component {
 		feed: [],
 		comment: [],
 		loading: false,
-		interval: null
+		interval: null,
+		chart: {},
+		showChart: 'none'
 	}
 
 	componentDidMount() {
@@ -51,6 +54,48 @@ class Index extends React.Component {
 				_this.selectGroup(selectedGroup)
 			}
 		}, 30000)
+	}
+
+	componentDidUpdate(nextProps, nextState) {
+		const { filter, selectedGroup, chart } = this.state
+
+		if (filter !== nextState.filter) {
+			if (filter !== null && filter !== '' && selectedGroup !== -1) {
+				const chart = this.setChart(chart)
+
+				var ctx = document.getElementById('myChart').getContext('2d')
+				var myChart = new Chart(ctx, {
+					type: 'line',
+					data: {
+						labels: chart.labels,
+						datasets: [
+							{
+								label: 'mention',
+								data: chart.data,
+								backgroundColor: [
+									'rgba(255, 99, 132, 0.2)',
+									'rgba(54, 162, 235, 0.2)',
+									'rgba(255, 206, 86, 0.2)',
+									'rgba(75, 192, 192, 0.2)',
+									'rgba(153, 102, 255, 0.2)',
+									'rgba(255, 159, 64, 0.2)'
+								],
+								borderColor: [
+									'rgba(255,99,132,1)',
+									'rgba(54, 162, 235, 1)',
+									'rgba(255, 206, 86, 1)',
+									'rgba(75, 192, 192, 1)',
+									'rgba(153, 102, 255, 1)',
+									'rgba(255, 159, 64, 1)'
+								],
+								borderWidth: 1
+							}
+						]
+					},
+					options: {}
+				})
+			}
+		}
 	}
 
 	fbStatus = () => {
@@ -94,7 +139,7 @@ class Index extends React.Component {
 
 	findFbGroup = e => {
 		e.preventDefault()
-		let { keyword, filter, selectedGroup, groupResult } = this.state
+		let { keyword, selectedGroup } = this.state
 		let _this = this
 
 		if (keyword !== '' && selectedGroup === -1) {
@@ -107,7 +152,7 @@ class Index extends React.Component {
 					})
 			})
 		} else if (keyword !== '') {
-			_this.setState({ filter: keyword }, () => {})
+			_this.setState({ filter: keyword, showChart: '' })
 		}
 	}
 
@@ -149,8 +194,10 @@ class Index extends React.Component {
 	closeGroup = () => {
 		this.setState({
 			keyword: '',
+			filter: null,
 			selectedGroup: -1,
-			feed: []
+			feed: [],
+			showChart: 'none'
 		})
 	}
 
@@ -179,7 +226,7 @@ class Index extends React.Component {
 		let { selectedGroup, groupResult } = this.state
 		let items = []
 
-		if (selectedGroup === -1 && groupResult.length > 0) {
+		if (selectedGroup === -1 && groupResult && groupResult.length > 0) {
 			let key = 0
 			groupResult.forEach(item => {
 				items.push(
@@ -206,18 +253,22 @@ class Index extends React.Component {
 	}
 
 	setFeed = () => {
-		let { time, selectedPost, feed, filter } = this.state
+		let {
+			time,
+			selectedGroup,
+			selectedPost,
+			feed,
+			keyword,
+			filter
+		} = this.state
 		let items = []
 
-		if (feed.length > 0) {
+		if (feed && feed.length > 0) {
 			_.sortBy(feed, [post => post.updated_time])
 			feed.forEach((item, index) => {
-				if (!filter) {
-					items = this.addPost(items, item, index, time, selectedPost)
-				} else if (
-					filter &&
-					item.message &&
-					item.message.indexOf(filter) !== -1
+				if (
+					!filter ||
+					(filter && (item.message && item.message.indexOf(filter) !== -1))
 				) {
 					items = this.addPost(items, item, index, time, selectedPost)
 				}
@@ -279,19 +330,60 @@ class Index extends React.Component {
 		return items
 	}
 
+	setChart = () => {
+		let { feed, filter } = this.state
+		let chart = {}
+
+		if (feed && feed.length > 0) {
+			feed.forEach((item, index) => {
+				if (
+					!filter ||
+					(filter && (item.message && item.message.indexOf(filter) !== -1))
+				) {
+					chart = this.addChart(chart, item)
+				}
+			})
+		}
+
+		let c = {}
+		c.labels = []
+		c.data = []
+
+		for (const key of Object.keys(chart)) {
+			c.labels.push(key)
+			c.data.push(chart[key])
+		}
+
+		return c
+	}
+
+	addChart = (chart, item) => {
+		const date = moment(item.created_time).format('DD-MM-YYYY')
+
+		if (chart[date]) {
+			chart[date]++
+		} else {
+			chart[date] = 0
+			chart[date]++
+		}
+
+		return chart
+	}
+
 	setComment = () => {
 		let { time, comment, filter } = this.state
 		let items = []
+		let key = 0
 
-		if (comment.length > 0) {
-			comment.forEach((item, index) => {
-				const newRep =
+		if (comment && comment.length > 0) {
+			comment.forEach(item => {
+				const newComment =
 					moment(item.created_time).diff(time, 'seconds') > 0
 						? 'mdl-chip mdl-chip--contact mdl-badge mdl-badge--overlap'
 						: 'mdl-chip mdl-chip--contact'
 
 				items.push(
-					<span className={newRep} data-badge="N" key={index}>
+					<span className={newComment} data-badge="N" key={key}>
 						<span className="mdl-chip__contact mdl-color--teal mdl-color-text--white">
 							C
 						</span>
@@ -306,14 +398,15 @@ class Index extends React.Component {
 				)
 
 				if (item.reply) {
-					item.reply.forEach((rep, rIndex) => {
+					item.reply.forEach(rep => {
+						key++
 						const newRep =
 							moment(rep.created_time).diff(time, 'seconds') > 0
 								? 'mdl-chip mdl-chip--contact mdl-badge mdl-badge--overlap'
 								: 'mdl-chip mdl-chip--contact'
 
 						items.push(
-							<span className={newRep} data-badge="N" key={rIndex}>
+							<span className={newRep} data-badge="N" key={key}>
 								<span className="mdl-chip__contact mdl-color--red mdl-color-text--white">
 									R
 								</span>
@@ -329,6 +422,7 @@ class Index extends React.Component {
 						)
 					})
 				}
+				key++
 			})
 		}
 
@@ -337,7 +431,15 @@ class Index extends React.Component {
 
 	render() {
 		const { stars } = this.props
-		let { login, name, keyword, selectedGroup, loading } = this.state
+		let {
+			login,
+			name,
+			keyword,
+			filter,
+			selectedGroup,
+			loading,
+			showChart
+		} = this.state
 
 		let groups = this.setGroup()
 		let feed = this.setFeed()
@@ -394,12 +496,26 @@ class Index extends React.Component {
 					</form>
 
 					{loading ? (
-						<div>loading...</div>
+						<div>
+							loading...
+							<canvas
+								id="myChart"
+								className={showChart}
+								width="400"
+								height="400"
+							/>
+						</div>
 					) : selectedGroup !== -1 ? (
 						<div>
 							<span className="close" onClick={e => this.closeGroup()}>
 								x
 							</span>
+							<canvas
+								id="myChart"
+								className={showChart}
+								width="400"
+								height="400"
+							/>
 							{feed}
 						</div>
 					) : (
@@ -438,6 +554,9 @@ class Index extends React.Component {
 						}
 						.mdl-card span.close:hover {
 							opacity: 0.8;
+						}
+						.none {
+							display: none;
 						}
 					`}</style>
 				</div>
