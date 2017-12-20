@@ -51,17 +51,23 @@ class Index extends React.Component {
 		setInterval(() => {
 			let { selectedGroup } = _this.state
 			if (selectedGroup !== -1) {
+				console.log('update')
 				_this.selectGroup(selectedGroup)
 			}
-		}, 30000)
+		}, 10000)
 	}
 
 	componentDidUpdate(nextProps, nextState) {
-		const { filter, selectedGroup, chart } = this.state
+		const { filter, selectedGroup, feed, chart } = this.state
 
 		if (filter !== nextState.filter) {
+			// if (filter !== nextState.filter || feed !== nextState.feed) {
+			console.log('feed', feed)
+
 			if (filter !== null && filter !== '' && selectedGroup !== -1) {
 				const chart = this.setChart(chart)
+
+				console.log('chart', chart)
 
 				var ctx = document.getElementById('myChart').getContext('2d')
 				var myChart = new Chart(ctx, {
@@ -165,27 +171,19 @@ class Index extends React.Component {
 			{ accessToken: this.state.accessToken, since: this.state.since },
 			response => {
 				if (response) {
-					_this.setState(
-						{
-							feed: response.data,
-							selectedGroup: id
-						},
-						() => {
-							this.state.feed.forEach((post, index) => {
-								FB.api(
-									`/${post.id}`,
-									{ fields: 'picture, created_time' },
-									response => {
-										let feed = this.state.feed
-										feed[index].created_time = response.created_time
-										if (response.picture) feed[index].picture = response.picture
+					response.data.forEach((post, index) => {
+						FB.api(
+							`/${post.id}`,
+							{ fields: 'picture, created_time' },
+							response2 => {
+								let feed = response.data
+								feed[index].created_time = response2.created_time
+								if (response.picture) feed[index].picture = response2.picture
 
-										_this.setState({ feed, loading: false })
-									}
-								)
-							})
-						}
-					)
+								_this.setState({ feed, selectedGroup: id, loading: false })
+							}
+						)
+					})
 				}
 			}
 		)
@@ -349,16 +347,24 @@ class Index extends React.Component {
 		c.labels = []
 		c.data = []
 
-		for (const key of Object.keys(chart)) {
+		const keys = Object.keys(chart)
+		const sortedKeys = _.sortBy(keys)
+		const sortedChart = _.fromPairs(_.map(sortedKeys, key => [key, chart[key]]))
+
+		for (const key of Object.keys(sortedChart)) {
 			c.labels.push(key)
-			c.data.push(chart[key])
+			c.data.push(sortedChart[key])
 		}
 
 		return c
 	}
 
 	addChart = (chart, item) => {
+		console.log('item', item)
+		console.log('item', Object.keys(item))
+		console.log('created_time', item['created_time'])
 		const date = moment(item.created_time).format('DD-MM-YYYY')
+		console.log('date', date)
 
 		if (chart[date]) {
 			chart[date]++
